@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Face Detection</title>
+    <style>
+      #canvas {
+        display: block;
+        margin: auto;
+        margin-top: 20px;
+        border: 1px solid #000;
+      }
+    </style>
+  </head>
+  <body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="./face-api.js"></script>
+
+    <script>
+      // 비동기 함수로 face-api.js 모델을 로드하는 함수 정의
+      async function loadModels() {
+        await faceapi.nets.faceLandmark68Net.loadFromUri('./models');
+        await faceapi.nets.faceRecognitionNet.loadFromUri('./models');
+        await faceapi.nets.faceExpressionNet.loadFromUri('./models');
+      }
+
+      // 비동기 함수로 비디오 스트림을 가져오고 얼굴 감지 및 캔버스에 그리는 함수 정의
+      async function startVideo() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // 비디오 스트림 가져오기
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        // 비디오 로드 후 실행
+        video.addEventListener('loadeddata', async () => {
+          // face-api.js 모델 로드
+          await loadModels();
+
+          // 비디오 너비 및 높이 설정
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+
+          // 얼굴 감지 및 캔버스에 그리기
+          setInterval(async () => {
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+              .withFaceLandmarks()
+              .withFaceExpressions();
+
+            // 캔버스 초기화
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 얼굴 및 표정을 캔버스에 그리기
+            faceapi.draw.drawDetections(canvas, faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height }));
+            faceapi.draw.drawFaceLandmarks(canvas, faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height }));
+            faceapi.draw.drawFaceExpressions(canvas, faceapi.resizeResults(detections, { width: canvas.width, height: canvas.height }));
+          }, 100);
+        });
+      }
+
+      // 페이지 로드 시 비디오 시작
+      window.onload = () => startVideo();
+    </script>
+  </body>
+</html>
